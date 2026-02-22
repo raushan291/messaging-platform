@@ -1,5 +1,26 @@
 # Messaging-platform
 
+## Environment Setup
+
+After cloning the repository, you must create environment variables for the frontend.
+
+Create the file:
+
+```bash
+cd frontend/
+cp .env.example .env.local
+```
+
+If `.env.example` does not exist, create `.env.local` manually and add:
+
+```env
+NEXT_PUBLIC_AUTH_API=http://localhost:8001/api/v1
+NEXT_PUBLIC_MESSAGING_API=http://localhost:8002/api/v1
+NEXT_PUBLIC_WS_API=ws://localhost:8002/api/v1
+```
+
+---
+
 ## Start Auth Service
 
 ```bash
