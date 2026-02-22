@@ -28,6 +28,9 @@ http://localhost:8002
 
 ```bash
 cd frontend/
+# If npm dependencies are not installed yet, install them first:
+npm install
+# Then start the development server:
 npm run dev
 ```
 
