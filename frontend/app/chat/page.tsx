@@ -117,6 +117,8 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [allowed, setAllowed] = useState<any>(false);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [filteredMessages, setFilteredMessages] = useState<any[]>([]);
 
   const router = useRouter();
 
@@ -209,6 +211,26 @@ export default function ChatPage() {
 
     loadUsernames();
   }, [conversations]);
+
+   useEffect(() => {
+    if (!activeConv) return;
+
+    if (!messageSearch.trim()) {
+      setFilteredMessages(messages); // show normal messages
+      return;
+    }
+
+    const delay = setTimeout(async () => {
+      try {
+        const results = await searchMessagesAPI(activeConv, messageSearch);
+        setFilteredMessages(results);
+      } catch (e) {
+        console.error("Message search failed:", e);
+      }
+    }, 300);
+
+    return () => clearTimeout(delay);
+  }, [messageSearch, activeConv, messages]);
 
 
   // load conversations
@@ -447,6 +469,14 @@ export default function ChatPage() {
     loadConversations();
   }
 
+  async function searchMessagesAPI(conversationId: string, query: string) {
+    if (!query.trim()) return;
+
+    return api(
+      `/search/messages?conversation_id=${conversationId}&query=${encodeURIComponent(query)}`
+    );
+  }
+
 
   // auto scrollreturn
   function scrollToBottom() {
@@ -576,10 +606,25 @@ export default function ChatPage() {
 
       {/* Chat Area */}
       <div className="flex flex-col flex-1 min-h-0 text-gray-900">
+        <div className="p-3 border-b bg-white">
+          <input
+            placeholder="Search messages..."
+            value={messageSearch}
+            onChange={(e) => setMessageSearch(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+        </div>
+
         {/* messages */}
         {activeConv && (
           <div className="flex-1 overflow-y-auto p-6 space-y-2 bg-[#F4F1EC]">
-            {messages.map((m) => {
+            {/* empty search result message */}
+            {messageSearch && filteredMessages.length === 0 && (
+              <div className="text-center text-gray-400 text-sm mt-4">
+                No messages found
+              </div>
+            )}
+            {filteredMessages.map((m) => {
               const isMe = currentUserId && m.sender_id === currentUserId;
               const isGroup = conversations.find(c => c.id === m.conversation_id)?.type === "group";
 
