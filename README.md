@@ -21,6 +21,20 @@ NEXT_PUBLIC_WS_API=ws://localhost:8002/api/v1
 
 ---
 
+## Start Elasticsearch
+
+```bash
+docker run -d \
+  --name elasticsearch \
+  -p 9200:9200 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+```
+
+---
+
 ## Start Auth Service
 
 ```bash

@@ -3,6 +3,7 @@ from app.core.jwt import verify_token
 from app.services.websocket_manager import manager
 from app.models.message import Message
 from app.db.session import SessionLocal
+from app.services.search_service import index_message
 
 router = APIRouter()
 
@@ -34,6 +35,8 @@ async def websocket_endpoint(ws: WebSocket, conversation_id: str):
             db.add(message)
             db.commit()
             db.refresh(message)
+
+            index_message(message, db)
 
             reply_to = None
 
