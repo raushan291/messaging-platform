@@ -157,7 +157,12 @@ export default function ChatPage() {
     if (!activeConv) return;
 
     socketRef.current = connectSocket(activeConv, (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        const map = new Map(prev.map(m => [m.id, m]));
+        map.set(msg.id, msg);
+        return Array.from(map.values());
+      });
+
       scrollToBottom();
     });
 

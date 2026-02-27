@@ -10,6 +10,7 @@ from app.models.message import Message
 from app.models.conversation_participant import ConversationParticipant
 from app.schemas.message import MessageCreate, MessageResponse
 from app.core.security import get_current_user_id
+from app.core.kafka import publish
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
@@ -24,7 +25,7 @@ def get_db():
 
 # Send Message
 @router.post("/", response_model=MessageResponse)
-def send_message(
+async def send_message(
     payload: MessageCreate,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
@@ -51,6 +52,39 @@ def send_message(
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    # Publish event to Kafka
+    reply_to = None
+
+    if message.reply_to_message_id:
+        parent = db.query(Message).filter(
+            Message.id == message.reply_to_message_id
+        ).first()
+
+        if parent:
+            reply_to = {
+                "id": str(parent.id),
+                "content": parent.content,
+                "sender_id": str(parent.sender_id),
+            }
+    try:
+        await publish(
+            topic="messages.created",
+            message={
+                "id": str(message.id),
+                "conversation_id": str(message.conversation_id),
+                "sender_id": str(message.sender_id),
+                "content": message.content,
+                "created_at": message.created_at.isoformat(),
+                "reply_to_message_id": str(message.reply_to_message_id) if message.reply_to_message_id else None,
+                "reply_to": reply_to,
+                "is_deleted": message.is_deleted,
+                "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
+            }
+        )
+    except Exception as e:
+        # Do not fail the request if Kafka publish fails, but log the error
+        print(f"[Kafka publish failed] {e}")
 
     return message
 

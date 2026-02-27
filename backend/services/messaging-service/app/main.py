@@ -3,9 +3,12 @@ from app.db.session import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.routes import router as api_router
 from app.api.v1.ws_routes import router as ws_router
-from app.db.session import SessionLocal
-from app.models.message import Message
-from app.services.search_service import index_message
+from app.core.kafka import start_kafka, stop_kafka
+import asyncio
+from app.services.kafka_consumers import (
+    consume_messages_created,
+    consume_indexing
+)
 import app.models
 
 app = FastAPI(title="Messaging Service", version="1.0.0")
@@ -29,16 +32,15 @@ app.include_router(ws_router, prefix="/api/v1")
 def health():
     return {"status": "Messaging service is running"}
 
-# Reindex all messages on startup
 @app.on_event("startup")
-def index_existing_messages():
-    db = SessionLocal()
-    try:
-        messages = db.query(Message).all()
+async def startup():
+    await start_kafka()
 
-        for message in messages:
-            index_message(message, db) 
-        print(f"Indexed {len(messages)} messages")
-    finally:
-        db.close()
+@app.on_event("shutdown")
+async def shutdown():
+    await stop_kafka()
 
+@app.on_event("startup")
+async def start_consumers():
+    asyncio.create_task(consume_messages_created())
+    asyncio.create_task(consume_indexing())

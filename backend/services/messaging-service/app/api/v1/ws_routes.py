@@ -3,7 +3,7 @@ from app.core.jwt import verify_token
 from app.services.websocket_manager import manager
 from app.models.message import Message
 from app.db.session import SessionLocal
-from app.services.search_service import index_message
+from app.core.kafka import publish
 
 router = APIRouter()
 
@@ -36,8 +36,6 @@ async def websocket_endpoint(ws: WebSocket, conversation_id: str):
             db.commit()
             db.refresh(message)
 
-            index_message(message, db)
-
             reply_to = None
 
             if message.reply_to_message_id:
@@ -52,20 +50,23 @@ async def websocket_endpoint(ws: WebSocket, conversation_id: str):
                         "sender_id": str(parent.sender_id),
                     }
 
-            await manager.broadcast(
-                conversation_id,
-                {
-                    "id": str(message.id),
-                    "conversation_id": conversation_id,
-                    "sender_id": user_id,
-                    "content": message.content,
-                    "created_at": message.created_at.isoformat(),
-                    "reply_to_message_id": str(message.reply_to_message_id) if message.reply_to_message_id else None,
-                    "reply_to": reply_to,
-                    "is_deleted": message.is_deleted,
-                    "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
-                }
-            )
+            try:
+                await publish(
+                    topic="messages.created",
+                    message={
+                        "id": str(message.id),
+                        "conversation_id": conversation_id,
+                        "sender_id": user_id,
+                        "content": message.content,
+                        "created_at": message.created_at.isoformat(),
+                        "reply_to_message_id": str(message.reply_to_message_id) if message.reply_to_message_id else None,
+                        "reply_to": reply_to,
+                        "is_deleted": message.is_deleted,
+                        "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
+                    }
+                )
+            except Exception as e:
+                print(f"[Kafka publish failed] {e}")
 
     except Exception:
         manager.disconnect(conversation_id, ws)
