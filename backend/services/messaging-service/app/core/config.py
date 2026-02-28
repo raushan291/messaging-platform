@@ -7,6 +7,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://auth_user:auth_pass@localhost:5432/messaging_db"
     JWT_SECRET: str = "super-secret-key"
     JWT_ALGORITHM: str = "HS256"
+    REDIS_URL: str = "redis://localhost:6379"
+    MESSAGE_RATE_LIMIT: int = 5
+    MESSAGE_RATE_WINDOW: int = 10
+    MAX_MESSAGE_LENGTH: int = 2000 # characters
+    MAX_CONNECTIONS_PER_USER: int = 3
+    MAX_CONVERSATION_PARTICIPANTS: int = 1000
+    CREATE_CONVERSATION_LIMIT: int = 10   # per minute
+    CREATE_CONVERSATION_WINDOW: int = 60
+    GET_CONVERSATION_LIMIT: int = 30 
+    GET_CONVERSATION_WINDOW: int = 60
+    UPDATE_CONVERSATION_LIMIT: int = 10 
+    UPDATE_CONVERSATION_WINDOW: int = 60
+    DELETE_CONVERSATION_LIMIT: int = 10 
+    DELETE_CONVERSATION_WINDOW: int = 60
 
     class Config:
         env_file = ".env"

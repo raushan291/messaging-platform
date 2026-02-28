@@ -4,6 +4,14 @@ from app.services.websocket_manager import manager
 from app.models.message import Message
 from app.db.session import SessionLocal
 from app.core.kafka import publish
+from app.core.rate_limiter import (
+    is_rate_limited,
+    is_duplicate_message,
+    is_spam_burst,
+    can_open_connection,
+    close_connection,
+)
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -17,6 +25,11 @@ async def websocket_endpoint(ws: WebSocket, conversation_id: str):
         await ws.close()
         return
 
+    # connection limit
+    if not await can_open_connection(user_id):
+        await ws.close(code=4001)
+        return
+
     await manager.connect(conversation_id, ws)
 
     db = SessionLocal()
@@ -24,6 +37,29 @@ async def websocket_endpoint(ws: WebSocket, conversation_id: str):
     try:
         while True:
             data = await ws.receive_json()
+
+            content = data.get("content", "")
+            
+            # abuse prevention checks
+            if not content.strip():
+                await ws.send_json({"error": "Empty message"})
+                continue
+
+            if len(content) > settings.MAX_MESSAGE_LENGTH:
+                await ws.send_json({"error": "Message too long"})
+                continue
+            
+            if await is_spam_burst(user_id):
+                await ws.send_json({"error": "Too many messages"})
+                continue
+            
+            if await is_duplicate_message(user_id, content):
+                await ws.send_json({"error": "Duplicate message"})
+                continue
+
+            if await is_rate_limited(user_id, conversation_id):
+                await ws.send_json({"error": "Rate limit exceeded"})
+                continue
 
             message = Message(
                 conversation_id=conversation_id,
@@ -70,3 +106,6 @@ async def websocket_endpoint(ws: WebSocket, conversation_id: str):
 
     except Exception:
         manager.disconnect(conversation_id, ws)
+    finally:
+        await close_connection(user_id)
+        db.close()

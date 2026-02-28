@@ -15,6 +15,8 @@ from app.schemas.conversation import (
     ConversationUpdate,
 )
 from app.core.security import get_current_user_id
+from app.core.http_rate_limit import user_rate_limit
+from app.core.config import settings
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
@@ -30,11 +32,23 @@ def get_db():
 
 # Create Conversation
 @router.post("/", response_model=ConversationResponse)
-def create_conversation(
+async def create_conversation(
     payload: ConversationCreate,
     db: Session = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
 ):
+    # Rate limit
+    await user_rate_limit(
+        str(current_user_id),
+        action="create_conversation",
+        limit=settings.CREATE_CONVERSATION_LIMIT,
+        window=settings.CREATE_CONVERSATION_WINDOW,
+    )
+
+    # Abuse prevention
+    if len(payload.participant_ids) > settings.MAX_CONVERSATION_PARTICIPANTS:
+        raise HTTPException(400, "Too many participants")
+
     # Remove duplicates
     participant_ids = set(payload.participant_ids)
 
@@ -109,10 +123,13 @@ def create_conversation(
 
 
 @router.get("/", response_model=List[ConversationResponse])
-def get_my_conversations(
+async def get_my_conversations(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
 ):
+    # Rate limit
+    await user_rate_limit(current_user_id, action="get_conversations", limit=settings.GET_CONVERSATION_LIMIT, window=settings.GET_CONVERSATION_WINDOW)
+
     conversations = (
         db.query(Conversation).filter(Conversation.is_deleted == False)
         .join(ConversationParticipant)
@@ -140,11 +157,15 @@ def get_my_conversations(
 
 
 @router.patch("/{conversation_id}")
-def update_conversation(
+async def update_conversation(
     conversation_id: uuid.UUID,
     payload: ConversationUpdate,
     db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id),
 ):
+    # Rate limit
+    await user_rate_limit(current_user_id, action="update_conversation", limit=settings.UPDATE_CONVERSATION_LIMIT, window=settings.UPDATE_CONVERSATION_WINDOW)
+
     conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.is_deleted == False).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -156,9 +177,9 @@ def update_conversation(
 
 
 @router.delete("/{conversation_id}")
-def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
-
-    print("Deleting conversation with ID:", conversation_id)  # Debug log
+async def delete_conversation(conversation_id: str, db: Session = Depends(get_db), current_user_id: str = Depends(get_current_user_id)):
+    # Rate limit
+    await user_rate_limit(current_user_id, action="delete_conversation", limit=settings.DELETE_CONVERSATION_LIMIT, window=settings.DELETE_CONVERSATION_WINDOW)
 
     conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.is_deleted == False).first()
 

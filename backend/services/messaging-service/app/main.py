@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.routes import router as api_router
 from app.api.v1.ws_routes import router as ws_router
 from app.core.kafka import start_kafka, stop_kafka
+from app.core.redis import connect_redis, close_redis
 import asyncio
 from app.services.kafka_consumers import (
     consume_messages_created,
@@ -35,10 +36,12 @@ def health():
 @app.on_event("startup")
 async def startup():
     await start_kafka()
+    await connect_redis()
 
 @app.on_event("shutdown")
 async def shutdown():
     await stop_kafka()
+    await close_redis()
 
 @app.on_event("startup")
 async def start_consumers():
