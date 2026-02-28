@@ -23,11 +23,13 @@ NEXT_PUBLIC_WS_API=ws://localhost:8002/api/v1
 
 ## Start Redis
 
+```bash
 docker run -d \
   --name messaging-redis \
   -p 6379:6379 \
   --restart always \
   redis:7
+```
 
 ---
 
