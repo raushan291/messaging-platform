@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+pydantic-settings
+sqlalchemy
+psycopg2-binary
+redis>=5
+python-jose[cryptography]
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+python-dotenv
+aiokafka
+elasticsearch==8.11.1

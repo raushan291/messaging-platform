@@ -24,7 +24,7 @@ def search_messages(query: str, conversation_id: str | None = None):
     if conversation_id:
         must_conditions.append({
             "term": {
-                "conversation_id.keyword": conversation_id
+                "conversation_id": conversation_id
             }
         })
 
